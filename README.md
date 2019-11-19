@@ -1,5 +1,7 @@
 ## Project setup
 ```
+视频播放
+
 npm install
 ```
 
