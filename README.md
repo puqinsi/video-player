@@ -1,6 +1,6 @@
+视频播放项目:  vue+vuex+vant+video+swiper
 ## Project setup
 ```
-视频播放
 
 npm install
 ```
