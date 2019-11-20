@@ -3,41 +3,45 @@
     <header>
       <img src="../assets/icon-back-orange.png" alt="" @click="goBack">
     </header>
-    <video-player  class="video-play-box"
+    <video-player class="video-play-box" v-show="typeFlag"
         ref="videoPlayer"
         :options="playerOptions"
         :playsinline="true"
         customEventName="customstatechangedeventname"
 
-        @play="onPlayerPlay($event)"
-        @pause="onPlayerPause($event)"
-        @ended="onPlayerEnded($event)"
+        @play="onPlayerPlay"
+        @pause="onPlayerPause"
+        @ended="onPlayerEnded"
         @waiting="onPlayerWaiting($event)" 
         @loadeddata="onPlayerLoadeddata($event)"
         @timeupdate="onPlayerTimeupdate($event)"
         @ready="playerReadied">
     </video-player>
+    <van-image v-show="!typeFlag"
+      width="100%"
+      height="100%"
+      fit="contain"
+      :src="playerImage"
+    />
     <!-- 自定义控件 -->
     <div class="video-play-custom">
       <div class="video-play-mask" @click="togglePopup">
         <img class="video-play-button" v-if="playIconFlag" src="../assets/collection-icon-play.png" @click.stop="videoInitPlay" alt="">
       </div>
       <!-- 底部 -->
-      <van-popup class="video-play-col" v-model="show" position="bottom" :style="{ height: '1.28rem' }" :overlay="false">
+      <van-popup class="video-play-col" v-model="popupFlag" position="bottom" :style="{ height: '1.28rem' }" :overlay="false">
         <div class="video-col-list">
           <div class="video-col-button">
-            <van-icon v-if="!playFlag" name="play-circle" size="0.32rem"/>
-            <van-icon v-else name="pause-circle" size="0.32rem"/>
+            <van-icon v-show="!playFlag" name="play-circle" size="0.32rem" color="#FDAA3D" @click="togglePlay"/>
+            <van-icon v-show="playFlag" name="pause-circle" size="0.32rem" color="#FDAA3D" @click="togglePlay"/>
           </div>
           <div class="video-col-progress">
-            <!-- <van-progress :percentage="50" stroke-width="4" track-color="#fff" color="#FDAA3D" /> -->
-            <div class="video-col-pro-bottom">
-              <span class="video-col-pro-top"></span>
-              <span class="video-col-pro-dot"></span>
-            </div>
+            <van-slider v-model="proValue" bar-height="4px" active-color="#FDAA3D" @change="changePro">
+              <div class="video-col-pro-dot" slot="button"></div>
+            </van-slider>
           </div>
           <div class="video-col-time">
-            <span>03:46 / 09:08</span>  
+            <span>{{currentTime}}/{{duration}}</span>  
           </div>
         </div>
         <div class="video-res-list">
@@ -61,31 +65,32 @@
 import { Popup } from 'vant';
 import { Button } from 'vant';
 import { Icon } from 'vant';
-import { Progress } from 'vant';
+import { Slider } from 'vant';
+import { Image } from 'vant';
 
 import 'video.js/dist/video-js.css';
 import { videoPlayer } from 'vue-video-player';
 import 'swiper/dist/css/swiper.css';
 import { swiper, swiperSlide } from 'vue-awesome-swiper'
 
+Number.prototype.formatTime=function(){
+    // 计算
+    let i=0,s=parseInt(this);
+    if(s>60){
+        i=parseInt(s/60);
+        s=parseInt(s%60);
+    }
+    // 补零
+    let zero=function(v){
+        return (v>>0)<10?"0"+v:v;
+    };
+    return [zero(i),zero(s)].join(":");
+};
+
 export default {
   name: 'home',
   data(){
     return {
-      show: true, //弹出层开关
-      playIconFlag: true, //初始播放开关
-      playFlag: false,  //声音播放开关
-      playIndex: 0,
-      resList: [
-        {id: '111',name: '幼儿教育介绍达力芬的弗兰克大师傅', src: require('../assets/demo1.mp4')},
-        {id: '222',name: '数学教学(一)', src: require('../assets/demo2.mp4')},
-        {id: '333',name: '数学教学(二)', src: require('../assets/demo3.mp4')},
-        {id: '444',name: '科学教学', src: require('../assets/demo4.mp4')},
-        {id: '555',name: '艺术教学', src: require('../assets/demo5.mp4')},
-        {id: '666',name: '语言教学(一)', src: require('../assets/demo6.mp4')},
-        {id: '777',name: '语言教学(二)', src: require('../assets/demo7.mp4')},
-        {id: '888',name: '舞蹈教学', src: require('../assets/demo8.mp4')}
-      ],
       playerOptions: {
           // videojs options
         height: document.documentElement.clientHeight,
@@ -94,6 +99,7 @@ export default {
         // playbackRates: [1.0, 1.5, 2.0],
         sources: [
           {type: "video/mp4",src: ''},
+          // {type: "image/png",src: require('../assets/logo.png')},
         ],
         loop: false,
         preload: true,
@@ -101,22 +107,24 @@ export default {
         controls: false
       },
       swiperOption: {
-          // some swiper options/callbacks
-          // 所有的参数同 swiper 官方 api 参数
-          spaceBetween: 12,
-          slidesPerView: 'auto',
-          observer:true,
-          on:{
-            click: this.selRes
-          },
+        // some swiper options/callbacks
+        // 所有的参数同 swiper 官方 api 参数
+        spaceBetween: 12,
+        slidesPerView: 'auto',
+        observer:true,
+        on:{
+          click: this.selRes
         }
+      }
     }
   },
   components: {
     [Popup.name]: Popup,
     [Button.name]: Button,
     [Icon.name]: Icon,
-    [Progress.name]: Progress,
+    [Slider.name]: Slider,
+    [Image.name]: Image,
+
     videoPlayer,
     swiper,
     swiperSlide
@@ -127,6 +135,46 @@ export default {
     },
     swiper() {
       return this.$refs.mySwiper.swiper
+    },
+    popupFlag: {
+      get() {
+        return this.$store.state.popupFlag;
+      },
+      set(v) {
+        this.$store.dispatch('changePopup', v);
+      }
+    },
+    playIconFlag(){
+      return this.$store.state.playIconFlag;
+    },
+    playFlag(){
+      return this.$store.state.playFlag;
+    },
+    playIndex(){
+      return this.$store.state.playIndex;
+    },
+    typeFlag(){
+      return this.$store.state.typeFlag;
+    },
+    duration(){
+      return this.$store.state.duration;
+    },
+    currentTime(){
+      return this.$store.state.currentTime;
+    },
+    proValue: {
+      get() {
+        return this.$store.state.proValue;
+      },
+      set(v) {
+        this.$store.dispatch('changeProValue', v);
+      }
+    },
+    resList(){
+      return this.$store.state.resList;
+    },
+    playerImage(){
+      return this.$store.state.playerImage;
     }
   },
   created() {
@@ -137,58 +185,109 @@ export default {
     playerReadied() {
       window.console.log('the player is readied')
     },
-    onPlayerPlay(player) {
-      window.console.log('player play!', player)
+    onPlayerPlay() {
+      window.console.log('player play!')
+      this.$store.dispatch('changePlayFlag', true)
     },
-    onPlayerPause(player) {
-      window.console.log('player pause!', player)
+    onPlayerPause() {
+      window.console.log('player pause!')
+      this.$store.dispatch('changePlayFlag', false)
     },
     onPlayerWaiting(player) {
       window.console.log('the player is waiting', player)
     },
     onPlayerLoadeddata(player) {
-      window.console.log('the player is loaded', player)
+      window.console.log('the player is loaded')
+
+      let duration = Number(player.duration()).formatTime();
+      let currentTime = Number(player.currentTime()).formatTime();
+      
+      this.$store.dispatch('changeDuration',duration);
+      this.$store.dispatch('changeCurrentTime',currentTime);
+
       if(!this.playIconFlag){
         player.play();
       }
     },
-    onPlayerTimeupdate(player) {
-      window.console.log('the player is timeupdate', player)
+    onPlayerTimeupdate() {
+      // window.console.log('the player is timeupdate')
+      this.changeProTime();
     },
-    onPlayerEnded(player) {
-      window.console.log('the player is ended', player)
-      this.playIndex++;
-      if(this.playIndex < this.resList.length){
+    onPlayerEnded() {
+      window.console.log('the player is ended')
+      let index = this.playIndex+1;
+
+      if(index < this.resList.length){
         this.switchRes(this.playIndex);
+        this.$store.dispatch('changePlayIndex', index);
       }
     },
+    // 视频控件操作
+    // 控件进度条
+    changePro() {
+      let duration = this.player.duration();
+      let currentTime = duration*this.proValue/100;
+      window.console.log(currentTime,duration,currentTime/duration*100+'%')
 
+      this.player.currentTime(currentTime);
+    },
+    // 控件进度时间
+    changeProTime() {
+      let duration = this.player.duration();
+      let currentTime = this.player.currentTime();
+
+      let proValue = currentTime/duration*100;
+      let fDuration = Number(duration).formatTime();
+      let fCurrentTime = Number(currentTime).formatTime();
+      
+      this.$store.dispatch('changeProValue', proValue)
+      this.$store.dispatch('changeDuration',fDuration);
+      this.$store.dispatch('changeCurrentTime',fCurrentTime);
+    },
+    // 控件播放按钮
+    togglePlay() {
+      if(this.playFlag){
+        this.player.pause();
+      }else{
+        this.player.play();
+      }
+    },
+    // 其他操作
     goBack() {
       window.console.log('返回');
     },
     // 初始播放
     videoInitPlay() {
       this.player.play();
-      this.playIconFlag = false;
+
+      this.$store.dispatch('changePlayIconFlag', false);
+
+      this.$store.dispatch('changePopup', true);
+      setTimeout( ()=>{
+        this.$store.dispatch('changePopup', false);
+      },1500)
     },
     // 弹出层切换
     togglePopup() {
-      if(this.show == false){
+      window.console.log(this.popupFlag);
+      if(this.popupFlag == false){
         if(!this.playIconFlag){
           window.console.log('show');
-          this.show = true;
+          this.$store.dispatch('changePopup', true);
         }
       }else{
         window.console.log('hide');
-        this.show = false;
+        this.$store.dispatch('changePopup', false);
       }
     },
     selRes() {
-      var clickedIndex = this.swiper.clickedIndex;
-      if(clickedIndex){
-        this.show = false;
-        this.playIndex = clickedIndex;
+      let clickedIndex = this.swiper.clickedIndex;
+      if(clickedIndex || clickedIndex == 0){
+        this.$store.dispatch('changePlayIndex', clickedIndex);
         this.switchRes(clickedIndex);
+        setTimeout( ()=>{
+          this.$store.dispatch('changePopup', false);
+        },1500)
       }else{
         window.console.log(clickedIndex);
       }
@@ -198,11 +297,16 @@ export default {
       window.console.log(resIndex);
   
       this.playerOptions.sources[0].src = this.resList[resIndex].src;
+      // 注意测试能不能自动切换播放
     }
   }
 }
 </script>
 <style lang="less">
+.home{
+  height: 100%;
+  background: #000;
+}
 header{
   position: absolute;
   left: 0;
@@ -256,25 +360,11 @@ header{
         float: left;
         width: 5.08rem;
         margin: 0.26rem 0.12rem 0 0;
-        .video-col-pro-bottom{
-          width: 100%;
-          height: 4px;
-          border-radius: 4px;
-          background: #fff;
-          position: relative;
-          .video-col-pro-top{
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 4px;
-            background: #FDAA3D;
-          }
-          .video-col-pro-dot{
-            width: 12px;
-            height: 12px;
-            background: #FDAA3D;
-          }
+        .video-col-pro-dot{
+          width: 12px;
+          height: 12px;
+          background: #FDAA3D;
+          border-radius: 12px;
         }
       }
       .video-col-time{
